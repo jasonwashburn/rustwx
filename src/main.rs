@@ -1,14 +1,15 @@
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3::{Client, output::GetObjectOutput, types::SdkError, error::GetObjectError};
 use tokio;
+use tokio::io::{BufReader, AsyncBufReadExt};
 
 #[tokio::main]
 async fn main() {
     let client = get_client().await;
     match download_object(&client).await {
-        Ok(object) => println!("{}", object.content_length()),
+        Ok(object) => read_body(object).await,
         Err(_) => println!("Error downloading object!"),
-    };
+    }
 }
 
 async fn get_client() -> Client {
@@ -28,3 +29,9 @@ async fn download_object(client: &Client) -> Result<GetObjectOutput, SdkError<Ge
     resp
 }
 
+async fn read_body(object: GetObjectOutput) {
+    let mut lines = BufReader::new(object.body.into_async_read()).lines();
+    while let Some(line) = lines.next_line().await.expect("IO Error"){
+        println!("{}", line);
+    }
+}
